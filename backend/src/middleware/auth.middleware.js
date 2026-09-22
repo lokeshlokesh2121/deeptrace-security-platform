@@ -1,32 +1,31 @@
 const jwt = require("jsonwebtoken");
 
-module.exports = (req,res,next)=>{
+module.exports = (req, res, next) => {
+  try {
+    const authHeader = req.headers.authorization;
 
- const auth = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return res.status(401).json({
+        success: false,
+        message: "Access token required"
+      });
+    }
 
- if(!auth){
-  return res.status(401).json({
-   message:"No token"
-  });
- }
+    const token = authHeader.split(" ")[1];
 
- const token = auth.split(" ")[1];
+    const decoded = jwt.verify(
+      token,
+      process.env.JWT_SECRET
+    );
 
- try{
+    req.user = decoded;
 
-  const decoded = jwt.verify(
-   token,
-   process.env.JWT_SECRET
-  );
+    next();
 
-  req.user = decoded;
-
-  next();
-
- }catch(err){
-
-  return res.status(401).json({
-   message:"Invalid token"
-  });
- }
+  } catch (error) {
+    return res.status(401).json({
+      success: false,
+      message: "Invalid or expired token"
+    });
+  }
 };
