@@ -1,0 +1,101 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  MANAGER
+  USER
+}
+
+enum CampaignStatus {
+  DRAFT
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+model Tenant {
+  id        Int      @id @default(autoincrement())
+  name      String
+
+  users     User[]
+  campaigns Campaign[]
+  events    SecurityEvent[]
+}
+
+model User {
+  id           Int    @id @default(autoincrement())
+
+  name         String
+  email        String @unique
+  passwordHash String
+
+  role         Role
+
+  tenantId     Int
+  tenant       Tenant @relation(fields: [tenantId], references: [id])
+
+  campaignUsers CampaignUser[]
+  auditLogs     AuditLog[]
+}
+
+model Campaign {
+  id          Int @id @default(autoincrement())
+
+  name        String
+  description String?
+
+  status      CampaignStatus
+
+  tenantId    Int
+  tenant      Tenant @relation(fields: [tenantId], references: [id])
+
+  users       CampaignUser[]
+
+  createdAt   DateTime @default(now())
+}
+
+model CampaignUser {
+  campaignId Int
+  userId     Int
+
+  campaign Campaign @relation(fields: [campaignId], references: [id])
+  user     User     @relation(fields: [userId], references: [id])
+
+  @@id([campaignId, userId])
+}
+
+model SecurityEvent {
+  id          Int @id @default(autoincrement())
+
+  eventType   String
+  severity    String
+  status      String
+  description String
+
+  tenantId Int
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  createdAt DateTime @default(now())
+}
+
+model AuditLog {
+  id       Int @id @default(autoincrement())
+
+  action   String
+  entity   String
+  entityId Int
+
+  userId   Int
+  tenantId Int
+
+  user User @relation(fields: [userId], references: [id])
+
+  createdAt DateTime @default(now())
+}
