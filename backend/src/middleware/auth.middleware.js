@@ -1,31 +1,31 @@
-const jwt = require("jsonwebtoken");
+const { verifyToken } = require("../utils/jwt"); // adjust path to your jwt util
 
 module.exports = (req, res, next) => {
   try {
-    const authHeader = req.headers.authorization;
+    const header = req.headers.authorization || "";
+    const token = header.startsWith("Bearer ") ? header.slice(7) : null;
 
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    if (!token) {
       return res.status(401).json({
         success: false,
-        message: "Access token required"
+        message: "No token provided",
       });
     }
 
-    const token = authHeader.split(" ")[1];
+    const decoded = verifyToken(token);
 
-    const decoded = jwt.verify(
-      token,
-      process.env.JWT_SECRET
-    );
-
-    req.user = decoded;
+    req.user = {
+      id: decoded.userId,
+      userId: decoded.userId,
+      tenantId: decoded.tenantId,
+      role: decoded.role,
+    };
 
     next();
-
-  } catch (error) {
+  } catch (err) {
     return res.status(401).json({
       success: false,
-      message: "Invalid or expired token"
+      message: "Invalid or expired token",
     });
   }
 };

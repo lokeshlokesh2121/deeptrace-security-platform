@@ -2,32 +2,41 @@ const express = require("express");
 const router = express.Router();
 
 const userController = require("../controllers/user.controller");
-
 const authMiddleware = require("../middleware/auth.middleware");
 const roleMiddleware = require("../middleware/role.middleware");
 
-router.use(authMiddleware);
+router.use(authMiddleware); // ← only once
 
-router.get("/", userController.getUsers);
-router.get("/:id", userController.getUserById);
+// View Users
+router.get(
+  "/",
+  roleMiddleware("ADMIN", "MANAGER", "USER"),
+  userController.getUsers
+);
 
+router.get(
+  "/:id",
+  roleMiddleware("ADMIN", "MANAGER", "USER"),
+  userController.getUserById
+);
+
+// Create User — ADMIN only
 router.post(
   "/",
-  authMiddleware,
   roleMiddleware("ADMIN"),
   userController.createUser
 );
 
+// Update User — ADMIN only
 router.put(
   "/:id",
-  authMiddleware,
   roleMiddleware("ADMIN"),
   userController.updateUser
 );
 
+// Delete User — ADMIN only
 router.delete(
   "/:id",
-  authMiddleware,
   roleMiddleware("ADMIN"),
   userController.deleteUser
 );

@@ -20,13 +20,28 @@ enum CampaignStatus {
   CANCELLED
 }
 
+enum Severity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum EventStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
 model Tenant {
-  id        Int      @id @default(autoincrement())
-  name      String
+  id   Int    @id @default(autoincrement())
+  name String
 
   users     User[]
   campaigns Campaign[]
   events    SecurityEvent[]
+  auditLogs AuditLog[]
 }
 
 model User {
@@ -38,51 +53,65 @@ model User {
 
   role         Role
 
-  tenantId     Int
-  tenant       Tenant @relation(fields: [tenantId], references: [id])
+  tenantId Int
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
 
-  campaignUsers CampaignUser[]
-  auditLogs     AuditLog[]
+  campaignUsers    CampaignUser[]
+  auditLogs        AuditLog[]
+  createdCampaigns Campaign[]     @relation("CreatedCampaigns")
+
+  @@index([tenantId])
 }
 
 model Campaign {
-  id          Int @id @default(autoincrement())
-
+  id          Int     @id @default(autoincrement())
   name        String
   description String?
-
   status      CampaignStatus
 
-  tenantId    Int
-  tenant      Tenant @relation(fields: [tenantId], references: [id])
+  tenantId Int
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  createdById Int?
+  createdBy   User? @relation("CreatedCampaigns", fields: [createdById], references: [id])
 
   users       CampaignUser[]
 
-  createdAt   DateTime @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId, status])
+  @@index([tenantId, createdAt])
 }
 
 model CampaignUser {
   campaignId Int
   userId     Int
 
-  campaign Campaign @relation(fields: [campaignId], references: [id])
-  user     User     @relation(fields: [userId], references: [id])
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId],     references: [id], onDelete: Cascade)
 
   @@id([campaignId, userId])
+  @@index([userId])
+  @@index([campaignId])
 }
 
 model SecurityEvent {
-  id          Int @id @default(autoincrement())
+  id          Int      @id @default(autoincrement())
 
   eventType   String
-  severity    String
-  status      String
-  description String
+  severity    Severity
+  status      EventStatus
+  description String?
 
   tenantId Int
   tenant   Tenant @relation(fields: [tenantId], references: [id])
 
   createdAt DateTime @default(now())
+
+  @@index([tenantId, status])
+  @@index([tenantId, severity])
+  @@index([tenantId, createdAt])
 }
 
 model AuditLog {
@@ -95,7 +124,11 @@ model AuditLog {
   userId   Int
   tenantId Int
 
-  user User @relation(fields: [userId], references: [id])
+  user   User   @relation(fields: [userId],   references: [id])
+  tenant Tenant @relation(fields: [tenantId], references: [id])
 
   createdAt DateTime @default(now())
+
+  @@index([tenantId, createdAt])
+  @@index([entity, entityId])
 }

@@ -1,4 +1,5 @@
 const prisma = require("../config/prisma");
+const ROLE_OPTIONS = ["ADMIN", "MANAGER", "USER"];
 
 exports.createUser = async (req, res) => {
   try {
@@ -73,57 +74,73 @@ exports.getUserById = async (req, res) => {
 
   res.json(user);
 };
-
+// user.c
 exports.updateUser = async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const { name, role } = req.body;
 
-  const user = await prisma.user.findFirst({
-    where: {
-      id: Number(req.params.id),
-      tenantId: req.user.tenantId
-    }
-  });
-
-  if (!user) {
-    return res.status(404).json({
-      message: "User not found"
+    const user = await prisma.user.findFirst({
+      where: { id, tenantId: req.user.tenantId },
     });
-  }
 
-  const updatedUser = await prisma.user.update({
-    where: {
-      id: user.id
-    },
-    data: {
-      name: req.body.name,
-      role: req.body.role
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
     }
-  });
 
-  res.json(updatedUser);
+    if (role && !ROLE_OPTIONS.includes(role)) {
+      return res.status(400).json({ message: "Invalid role" });
+    }
+
+    // Optional safety: prevent self-demotion from ADMIN
+    if (id === req.user.id && role && role !== "ADMIN") {
+      return res.status(400).json({
+        message: "You cannot remove your own ADMIN role",
+      });
+    }
+
+    const updatedUser = await prisma.user.update({
+      where: { id },
+      data: {
+        ...(name !== undefined && { name: name.trim() }),
+        ...(role !== undefined && { role }),
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+      },
+    });
+
+    res.json(updatedUser);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
 };
 
 exports.deleteUser = async (req, res) => {
+  try {
+    const id = Number(req.params.id);
 
-  const user = await prisma.user.findFirst({
-    where: {
-      id: Number(req.params.id),
-      tenantId: req.user.tenantId
+    if (id === req.user.id) {
+      return res
+        .status(400)
+        .json({ message: "You cannot delete your own account" });
     }
-  });
 
-  if (!user) {
-    return res.status(404).json({
-      message: "User not found"
+    const user = await prisma.user.findFirst({
+      where: { id, tenantId: req.user.tenantId },
     });
-  }
 
-  await prisma.user.delete({
-    where: {
-      id: user.id
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
     }
-  });
 
-  res.json({
-    message: "User deleted successfully"
-  });
+    await prisma.user.delete({ where: { id } });
+
+    res.json({ message: "User deleted successfully" });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
 };
